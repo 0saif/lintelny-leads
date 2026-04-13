@@ -1,73 +1,66 @@
 import os
 from datetime import datetime, timedelta
-import sqlite3
-from database import get_connection
+from database import get_client
+
 
 def generate_sequence(lead_id):
-    conn = get_connection()
-    cursor = conn.cursor()
-    
-    # 9-Touch Follow Up Sequence
     sequence = [
         {"touch": 1, "channel": "email", "delay_days": 1},
         {"touch": 2, "channel": "phone", "delay_days": 2},
         {"touch": 3, "channel": "email", "delay_days": 4},
-        {"touch": 4, "channel": "text", "delay_days": 7},
+        {"touch": 4, "channel": "text",  "delay_days": 7},
         {"touch": 5, "channel": "phone", "delay_days": 10},
         {"touch": 6, "channel": "email", "delay_days": 14},
-        {"touch": 7, "channel": "text", "delay_days": 21},
+        {"touch": 7, "channel": "text",  "delay_days": 21},
         {"touch": 8, "channel": "phone", "delay_days": 30},
         {"touch": 9, "channel": "email", "delay_days": 45},
     ]
-    
     base_date = datetime.now()
-    
-    for step in sequence:
-        scheduled = (base_date + timedelta(days=step["delay_days"])).strftime("%Y-%m-%d")
-        cursor.execute("""
-            INSERT INTO follow_ups (lead_id, touch_number, channel, scheduled_date, status)
-            VALUES (?, ?, ?, ?, ?)
-        """, (lead_id, step["touch"], step["channel"], scheduled, "pending"))
-        
-    conn.commit()
-    conn.close()
+    rows = [
+        {
+            'lead_id':        lead_id,
+            'touch_number':   step['touch'],
+            'channel':        step['channel'],
+            'scheduled_date': (base_date + timedelta(days=step['delay_days'])).strftime('%Y-%m-%d'),
+            'status':         'pending',
+        }
+        for step in sequence
+    ]
+    get_client().table('follow_ups').insert(rows).execute()
     return True
 
-def get_pending_follow_ups():
-    conn = get_connection()
-    cursor = conn.cursor()
-    query = """
-        SELECT f.id, f.touch_number, f.channel, f.scheduled_date, l.name, l.id as lead_id
-        FROM follow_ups f
-        JOIN leads l ON f.lead_id = l.id 
-        WHERE f.status = 'pending' 
-        ORDER BY f.scheduled_date ASC
-    """
-    try:
-        cursor.execute(query)
-        rows = [dict(row) for row in cursor.fetchall()]
-    except sqlite3.OperationalError:
-        rows = []
-    conn.close()
-    return rows
 
-def mark_touch_completed(follow_up_id, notes=""):
-    conn = get_connection()
-    cursor = conn.cursor()
-    now = datetime.now().isoformat()
-    cursor.execute("""
-        UPDATE follow_ups
-        SET status = 'done', completed_date = ?, notes = ?
-        WHERE id = ?
-    """, (now, notes, follow_up_id))
-    conn.commit()
-    conn.close()
+def get_pending_follow_ups():
+    result = (
+        get_client()
+        .table('follow_ups')
+        .select('id, touch_number, channel, scheduled_date, leads(id, name)')
+        .eq('status', 'pending')
+        .order('scheduled_date')
+        .execute()
+    )
+    tasks = []
+    for row in result.data or []:
+        lead = row.pop('leads', {}) or {}
+        row['lead_id'] = lead.get('id')
+        row['name'] = lead.get('name')
+        tasks.append(row)
+    return tasks
+
+
+def mark_touch_completed(follow_up_id, notes=''):
+    get_client().table('follow_ups').update({
+        'status':         'done',
+        'completed_date': datetime.now().isoformat(),
+        'notes':          notes,
+    }).eq('id', follow_up_id).execute()
+
 
 def get_todays_followups():
-    """Returns pending follow-ups that are scheduled for today."""
+    """Returns pending follow-ups scheduled for today."""
     today = datetime.now().strftime('%Y-%m-%d')
-    all_pending = get_pending_follow_ups()
-    return [f for f in all_pending if f.get('scheduled_date', '') == today]
+    return [f for f in get_pending_follow_ups() if f.get('scheduled_date', '') == today]
+
 
 def send_daily_digest():
     """Sends a daily digest email summarising today's pending follow-ups via SendGrid."""
@@ -80,7 +73,7 @@ def send_daily_digest():
         print("No follow-ups due today. Daily digest skipped.")
         return False
 
-    task_lines = "".join(
+    task_lines = ''.join(
         f"<li>{t.get('channel', '').title()} — {t.get('name', 'Unknown')} "
         f"(Touch #{t.get('touch_number')}, Due: {t.get('scheduled_date')})</li>"
         for t in todays_tasks

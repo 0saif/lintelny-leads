@@ -9,7 +9,7 @@ from sendgrid.helpers.mail import Mail
 from dotenv import load_dotenv
 
 from config import COMPANY_NAME, PHONE, WEBSITE, HIC_LICENSE, SERVICES, EMAIL
-from database import get_connection, get_lead_by_id
+from database import get_lead_by_id
 
 load_dotenv()
 
@@ -107,7 +107,7 @@ def _generate_fallback_outreach(lead: dict) -> dict:
     email_subject = f"Free Consultation — {address}"
     email_body = (
         f"{opening}\n\n"
-        f"My name is MD MOSHIN, and I'm a Project Coordinator at {COMPANY_NAME}, a licensed general contracting firm "
+        f"My name is Saif Anwar, and I'm a Project Coordinator at {COMPANY_NAME}, a licensed general contracting firm "
         f"specializing in {lead.get('property_type', 'residential')} renovations across New York City.\n\n"
         f"We offer a free, no-obligation site consultation to walk through your project scope and provide an honest "
         f"assessment. If you'd like a rough cost estimate before we connect, our online calculator is available at "
@@ -267,17 +267,14 @@ def send_email(to_email: str, subject: str, body: str, lead_id: int = None) -> b
         
         # Log to the database
         if success and lead_id is not None:
-            conn = get_connection()
-            cursor = conn.cursor()
-            now = datetime.now().isoformat()
-            
-            cursor.execute("""
-                INSERT INTO outreach (lead_id, channel, subject, body, sent_at)
-                VALUES (?, ?, ?, ?, ?)
-            """, (lead_id, 'email', subject, body, now))
-            
-            conn.commit()
-            conn.close()
+            from database import get_client
+            get_client().table('outreach').insert({
+                'lead_id': lead_id,
+                'channel': 'email',
+                'subject': subject,
+                'body':    body,
+                'sent_at': datetime.now().isoformat(),
+            }).execute()
             
         return success
         

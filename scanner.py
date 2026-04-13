@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 from dotenv import load_dotenv
 
 from config import COVERAGE_ZIPS
-from database import get_connection, insert_lead
+from database import get_client, insert_lead
 from scorer import score_lead
 
 load_dotenv()
@@ -40,13 +40,8 @@ def _address_exists_in_db(address):
     if not address:
         return False
         
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT id FROM leads WHERE LOWER(address) = LOWER(?)", (address,))
-    exists = cursor.fetchone() is not None
-    conn.close()
-    
-    return exists
+    result = get_client().table('leads').select('id').ilike('address', address).execute()
+    return len(result.data) > 0
 
 def _get_all_coverage_zips():
     """

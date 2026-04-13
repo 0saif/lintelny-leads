@@ -5,7 +5,7 @@ import plotly.graph_objects as go
 from datetime import datetime, timedelta
 import sqlite3
 
-from database import init_db, get_connection, get_all_leads, update_lead_status
+from database import init_db, get_all_leads, update_lead_status
 from scanner import run_all_scanners
 from tracker import get_pending_follow_ups, mark_touch_completed
 from outreach import generate_outreach, send_email
@@ -79,12 +79,9 @@ df_leads = fetch_leads_df()
 def snooze_follow_up(follow_up_id):
     """Snoozes a follow-up task by 1 day."""
     try:
-        conn = get_connection()
-        cursor = conn.cursor()
+        from database import get_client
         tomorrow = (datetime.now() + timedelta(days=1)).strftime('%Y-%m-%d')
-        cursor.execute("UPDATE follow_ups SET scheduled_date = ? WHERE id = ?", (tomorrow, follow_up_id))
-        conn.commit()
-        conn.close()
+        get_client().table('follow_ups').update({'scheduled_date': tomorrow}).eq('id', follow_up_id).execute()
         st.toast("Task snoozed for 1 day!", icon="💤")
     except Exception as e:
         st.error(f"Error snoozing task: {e}")
