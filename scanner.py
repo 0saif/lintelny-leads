@@ -25,7 +25,7 @@ def _rate_limited_get(url, params=None):
     if params is None:
         params = {}
         
-    token = os.getenv("7x9tNZjYtsV0NZMIcguo7h4aJ")
+    token = os.getenv("NYC_OPEN_DATA_TOKEN")
     if token:
         params["$$app_token"] = token
         
@@ -127,7 +127,12 @@ def scan_dob_permits():
             skipped_count += 1
             continue
             
-        score = score_lead(zip_code, borough, f"DOB Filing {item.get('job_type', '')}")
+        score = score_lead({
+            "source": "permit",
+            "borough_county": borough,
+            "signal_date": filing_date_str,
+            "property_type": "Residential" if item.get('residential', '') == 'YES' else "Commercial"
+        })
         
         lead_data = {
             "source": "permit",
@@ -225,7 +230,12 @@ def scan_acris_closings():
         except ValueError:
             continue
             
-        score = score_lead("", borough_name, "property_purchase")
+        score = score_lead({
+            "source": "closing",
+            "borough_county": borough_name,
+            "signal_date": doc_date_str,
+            "property_type": "Residential"
+        })
         
         lead_data = {
             "source": "closing",
@@ -284,7 +294,11 @@ def import_manual_leads_csv(uploaded_file):
                 "property_type": "Unknown",
                 "signal_type": "manual_upload",
                 "signal_date": datetime.now().isoformat(),
-                "score": score_lead(zip_code, borough, "manual"),
+                "score": score_lead({
+                    "source": "manual",
+                    "borough_county": borough,
+                    "signal_date": datetime.now().isoformat()
+                }),
                 "status": "new"
             }
             

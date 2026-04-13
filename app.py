@@ -92,7 +92,7 @@ with st.sidebar:
             data=csv,
             file_name=f"{COMPANY_NAME.replace(' ', '_')}_leads_{datetime.now().strftime('%Y%m%d')}.csv",
             mime="text/csv",
-            use_container_width=True
+            width="stretch"
         )
     else:
         st.info("No data available yet.")
@@ -200,15 +200,15 @@ with tab1:
                 # Action Buttons
                 with c5:
                     btn_col1, btn_col2, btn_col3 = st.columns(3)
-                    if btn_col1.button("📞 Contacted", key=f"c_{row['id']}", use_container_width=True):
+                    if btn_col1.button("📞 Contacted", key=f"c_{row['id']}", width="stretch"):
                         update_lead_status(row['id'], "contacted")
                         fetch_leads_df.clear()
                         st.rerun()
-                    if btn_col2.button("📅 Book", key=f"b_{row['id']}", use_container_width=True):
+                    if btn_col2.button("📅 Book", key=f"b_{row['id']}", width="stretch"):
                         update_lead_status(row['id'], "consultation")
                         fetch_leads_df.clear()
                         st.rerun()
-                    if btn_col3.button("❌ Lost", key=f"l_{row['id']}", use_container_width=True):
+                    if btn_col3.button("❌ Lost", key=f"l_{row['id']}", width="stretch"):
                         update_lead_status(row['id'], "lost")
                         fetch_leads_df.clear()
                         st.rerun()
@@ -223,7 +223,7 @@ with tab2:
     
     col1, col2 = st.columns([1, 2])
     with col1:
-        if st.button("🚀 Run Scanners Now", type="primary", use_container_width=True):
+        if st.button("🚀 Run Scanners Now", type="primary", width="stretch"):
             with st.spinner("Connecting to NYC Open Data APIs (Enforcing Rate Limits)..."):
                 try:
                     summary = run_all_scanners()
@@ -250,7 +250,7 @@ with tab2:
         st.markdown("**Scan History (Last 10 Runs)**")
         if st.session_state['scan_history']:
             history_df = pd.DataFrame(st.session_state['scan_history'][:10])
-            st.dataframe(history_df, use_container_width=True, hide_index=True)
+            st.dataframe(history_df, width="stretch", hide_index=True)
         else:
             st.info("No scans executed in this session yet.")
 
@@ -282,10 +282,10 @@ with tab3:
                     t3.markdown(f"**Channel:** {chan.title()}<br>**Due:** {task.get('scheduled_date')}", unsafe_allow_html=True)
                     
                     with t4:
-                        if st.button("✅ Mark Done", key=f"done_{task['id']}", use_container_width=True):
+                        if st.button("✅ Mark Done", key=f"done_{task['id']}", width="stretch"):
                             mark_touch_completed(task['id'], notes="Completed from dashboard")
                             st.rerun()
-                        if st.button("💤 Snooze 1 Day", key=f"snooze_{task['id']}", use_container_width=True):
+                        if st.button("💤 Snooze 1 Day", key=f"snooze_{task['id']}", width="stretch"):
                             snooze_follow_up(task['id'])
                             st.rerun()
                 st.divider()
@@ -309,7 +309,7 @@ with tab4:
         target_lead = next((l for l in lead_options if l['id'] == selected_id), None)
         
         if target_lead:
-            if st.button("Generate AI Outreach Suite", type="primary", use_container_width=True):
+            if st.button("Generate AI Outreach Suite", type="primary", width="stretch"):
                 with st.spinner("Generating personalized email, text, and door hanger via OpenRouter..."):
                     outreach_data = generate_outreach(target_lead)
                     st.session_state['outreach_data'] = outreach_data
@@ -326,7 +326,7 @@ with tab4:
                     email_body = st.text_area("Email Body", value=data.get('email', {}).get('body', ''), height=250)
                     target_email = st.text_input("Recipient Email Address")
                     
-                    if st.button("🚀 Send via SendGrid", type="primary"):
+                    if st.button("🚀 Send via SendGrid", type="primary", width="stretch"):
                         if target_email and email_body:
                             with st.spinner("Dispatching..."):
                                 success = send_email(target_email, email_subject, email_body, lead_id=target_lead['id'])
@@ -367,7 +367,7 @@ with tab5:
                 color_discrete_sequence=["#E85D2F"]
             )
             fig_bar.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
-            st.plotly_chart(fig_bar, use_container_width=True)
+            st.plotly_chart(fig_bar, width="stretch")
             
         # 2. Funnel Chart: Pipeline Conversions
         with chart_col2:
@@ -389,7 +389,7 @@ with tab5:
                 marker={"color": ["#171717", "#5E5E5E", "#A4A4A4", "#E85D2F", "#D04A20"]}
             ))
             fig_funnel.update_layout(title="Sales Pipeline Funnel", paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
-            st.plotly_chart(fig_funnel, use_container_width=True)
+            st.plotly_chart(fig_funnel, width="stretch")
 
         st.divider()
 
@@ -413,7 +413,7 @@ with tab5:
                     xaxis_title="Date", yaxis_title="New Leads",
                     paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)"
                 )
-                st.plotly_chart(fig_line, use_container_width=True)
+                st.plotly_chart(fig_line, width="stretch")
             else:
                 st.info("No leads recorded in the last 30 days to plot velocity.")
         except Exception as e:

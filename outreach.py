@@ -1,4 +1,5 @@
 import os
+import re
 import json
 import time
 import requests
@@ -68,7 +69,7 @@ def generate_outreach(lead: dict) -> dict:
     Generates personalized, constraint-compliant outreach copy using OpenRouter API.
     Returns a dictionary containing email, text message, and door hanger copy.
     """
-    api_key = os.getenv("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")
+    api_key = os.getenv("OPENROUTER_API_KEY")
     if not api_key:
         print("OPENROUTER_API_KEY missing. Falling back to template.")
         return _generate_fallback_outreach(lead)
@@ -133,7 +134,7 @@ def generate_outreach(lead: dict) -> dict:
 
     try:
         response = requests.post(
-            "[https://openrouter.ai/api/v1/chat/completions](https://openrouter.ai/api/v1/chat/completions)",
+            "https://openrouter.ai/api/v1/chat/completions",
             headers=headers,
             json=payload,
             timeout=30
@@ -145,11 +146,9 @@ def generate_outreach(lead: dict) -> dict:
         response_text = response_data['choices'][0]['message']['content'].strip()
         
         # Clean up in case the model included markdown tags despite instructions
-        if response_text.startswith("```json"):
-            response_text = response_text.replace("```json", "", 1)
-        if response_text.endswith("```"):
-            response_text = response_text[::-1].replace("```", "", 1)[::-1]
-            
+        response_text = re.sub(r'^```(?:json)?\s*\n?', '', response_text)
+        response_text = re.sub(r'\n?```\s*$', '', response_text)
+
         data = json.loads(response_text.strip())
         
         return {

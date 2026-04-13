@@ -1,3 +1,4 @@
+import os
 from datetime import datetime, timedelta
 import sqlite3
 from database import get_connection
@@ -36,8 +37,8 @@ def get_pending_follow_ups():
     conn = get_connection()
     cursor = conn.cursor()
     query = """
-        SELECT f.id, f.touch_number, f.channel, f.scheduled_date, l.name, l.id as lead_id, l.phone 
-        FROM follow_ups f 
+        SELECT f.id, f.touch_number, f.channel, f.scheduled_date, l.name, l.id as lead_id
+        FROM follow_ups f
         JOIN leads l ON f.lead_id = l.id 
         WHERE f.status = 'pending' 
         ORDER BY f.scheduled_date ASC
@@ -55,9 +56,56 @@ def mark_touch_completed(follow_up_id, notes=""):
     cursor = conn.cursor()
     now = datetime.now().isoformat()
     cursor.execute("""
-        UPDATE follow_ups 
-        SET status = 'done', completed_date = ?, notes = ? 
+        UPDATE follow_ups
+        SET status = 'done', completed_date = ?, notes = ?
         WHERE id = ?
     """, (now, notes, follow_up_id))
     conn.commit()
     conn.close()
+
+def get_todays_followups():
+    """Returns pending follow-ups that are scheduled for today."""
+    today = datetime.now().strftime('%Y-%m-%d')
+    all_pending = get_pending_follow_ups()
+    return [f for f in all_pending if f.get('scheduled_date', '') == today]
+
+def send_daily_digest():
+    """Sends a daily digest email summarising today's pending follow-ups via SendGrid."""
+    from sendgrid import SendGridAPIClient
+    from sendgrid.helpers.mail import Mail
+    from config import EMAIL, COMPANY_NAME
+
+    todays_tasks = get_todays_followups()
+    if not todays_tasks:
+        print("No follow-ups due today. Daily digest skipped.")
+        return False
+
+    task_lines = "".join(
+        f"<li>{t.get('channel', '').title()} — {t.get('name', 'Unknown')} "
+        f"(Touch #{t.get('touch_number')}, Due: {t.get('scheduled_date')})</li>"
+        for t in todays_tasks
+    )
+
+    subject = f"[{COMPANY_NAME}] Daily Follow-Up Digest — {datetime.now().strftime('%b %d, %Y')}"
+    body = (
+        f"<h2>{COMPANY_NAME} Daily Digest</h2>"
+        f"<p>You have <strong>{len(todays_tasks)}</strong> follow-up(s) due today:</p>"
+        f"<ul>{task_lines}</ul>"
+        f"<p>Log into your command center to manage these tasks.</p>"
+    )
+
+    api_key = os.getenv("SENDGRID_API_KEY")
+    if not api_key:
+        print("SENDGRID_API_KEY missing. Cannot send daily digest.")
+        return False
+
+    try:
+        message = Mail(from_email=EMAIL, to_emails=EMAIL, subject=subject, html_content=body)
+        sg = SendGridAPIClient(api_key)
+        response = sg.send(message)
+        success = response.status_code in (200, 201, 202)
+        print(f"Daily digest {'sent' if success else 'failed'} (status: {response.status_code})")
+        return success
+    except Exception as e:
+        print(f"Daily digest send error: {e}")
+        return False
