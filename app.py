@@ -18,6 +18,38 @@ from config import COMPANY_NAME, WEBSITE, PHONE
 
 st.set_page_config(page_title=f"{COMPANY_NAME} Command Center", layout="wide", initial_sidebar_state="expanded")
 
+st.markdown("""
+<style>
+  /* Surfaces */
+  .stApp { background-color: #F4F3EE; }
+  section[data-testid="stSidebar"] > div { background-color: #171717; }
+
+  /* Sidebar text */
+  section[data-testid="stSidebar"] label,
+  section[data-testid="stSidebar"] p,
+  section[data-testid="stSidebar"] span,
+  section[data-testid="stSidebar"] .stMetric { color: #F4F3EE !important; }
+  section[data-testid="stSidebar"] .stMetric [data-testid="stMetricLabel"] { color: #9A9690 !important; }
+
+  /* Global text */
+  h1, h2, h3, h4 { color: #171717 !important; }
+  p, li, td { color: #171717; }
+
+  /* Dividers */
+  hr { border-color: #D5D3CD !important; }
+
+  /* Metric labels */
+  [data-testid="stMetricLabel"] { color: #9A9690 !important; }
+
+  /* Dataframe borders */
+  .stDataFrame { border: 1px solid #D5D3CD; }
+
+  /* Tab bar */
+  .stTabs [data-baseweb="tab-list"] { border-bottom: 2px solid #D5D3CD; }
+  .stTabs [aria-selected="true"] { border-bottom: 2px solid #E85D2F !important; color: #E85D2F !important; }
+</style>
+""", unsafe_allow_html=True)
+
 # Initialize database
 try:
     init_db()
@@ -62,8 +94,8 @@ def snooze_follow_up(follow_up_id):
 # ==========================================
 
 with st.sidebar:
-    st.markdown(f"<h2 style='font-family: monospace; color: #E85D2F;'>{COMPANY_NAME.upper()}</h2>", unsafe_allow_html=True)
-    st.caption("Lead Command Center")
+    st.markdown(f"<h2 style='font-family: monospace; color: #F4F3EE; letter-spacing: 2px;'>{COMPANY_NAME.upper()}</h2>", unsafe_allow_html=True)
+    st.markdown("<span style='color:#E85D2F;font-size:12px;letter-spacing:1px;text-transform:uppercase;'>Lead Command Center</span>", unsafe_allow_html=True)
     st.divider()
     
     st.subheader("Quick Stats")
@@ -310,7 +342,7 @@ with tab4:
         
         if target_lead:
             if st.button("Generate AI Outreach Suite", type="primary", width="stretch"):
-                with st.spinner("Generating personalized email, text, and door hanger via OpenRouter..."):
+                with st.spinner("Generating personalized email, text, and door hanger via OpenAI..."):
                     outreach_data = generate_outreach(target_lead)
                     st.session_state['outreach_data'] = outreach_data
             
@@ -386,7 +418,7 @@ with tab5:
             fig_funnel = go.Figure(go.Funnel(
                 y=[s.title() for s in stages],
                 x=funnel_vals,
-                marker={"color": ["#171717", "#5E5E5E", "#A4A4A4", "#E85D2F", "#D04A20"]}
+                marker={"color": ["#171717", "#9A9690", "#D5D3CD", "#E85D2F", "#E85D2F"]}
             ))
             fig_funnel.update_layout(title="Sales Pipeline Funnel", paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
             st.plotly_chart(fig_funnel, width="stretch")

@@ -13,6 +13,80 @@ from database import get_connection, get_lead_by_id
 
 load_dotenv()
 
+SENDER_NAME = "Saif Anwar"
+SENDER_TITLE = "Project Coordinator"
+
+
+def _build_email_html(body: str) -> str:
+    """Wraps a plain-text email body in a branded HTML template."""
+    # Style the calculator link as Signal Orange CTA
+    styled_body = re.sub(
+        r'(https?://)?lintelny\.com/cost-calculator\.html',
+        '<a href="https://lintelny.com/cost-calculator.html" '
+        'style="color:#E85D2F;font-weight:600;text-decoration:none;">'
+        'lintelny.com/cost-calculator.html</a>',
+        body
+    )
+
+    paragraphs = [p.strip() for p in styled_body.split('\n\n') if p.strip()]
+    body_html = ''.join(
+        f'<p style="margin:0 0 16px 0;line-height:1.75;color:#171717;font-size:15px;">'
+        f'{p.replace(chr(10), "<br>")}</p>'
+        for p in paragraphs
+    )
+    return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+</head>
+<body style="margin:0;padding:0;background:#F4F3EE;font-family:Arial,Helvetica,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#F4F3EE;padding:40px 16px;">
+    <tr><td align="center">
+      <table width="600" cellpadding="0" cellspacing="0"
+             style="max-width:600px;width:100%;background:#ffffff;
+                    border:1px solid #D5D3CD;border-radius:4px;overflow:hidden;">
+
+        <!-- HEADER -->
+        <tr>
+          <td style="background:#171717;padding:20px 32px;border-bottom:3px solid #E85D2F;">
+            <span style="font-size:20px;font-weight:700;color:#F4F3EE;letter-spacing:3px;">LINTEL NY</span>
+            <span style="font-size:11px;color:#9A9690;margin-left:14px;letter-spacing:1px;text-transform:uppercase;">Licensed General Contractors</span>
+          </td>
+        </tr>
+
+        <!-- BODY -->
+        <tr>
+          <td style="padding:36px 32px 8px 32px;">
+            {body_html}
+          </td>
+        </tr>
+
+        <!-- SIGNATURE -->
+        <tr>
+          <td style="padding:0 32px 32px 32px;">
+            <table cellpadding="0" cellspacing="0"
+                   style="border-top:1px solid #D5D3CD;padding-top:20px;margin-top:8px;width:100%;">
+              <tr>
+                <td>
+                  <p style="margin:0;font-size:15px;font-weight:700;color:#171717;">{SENDER_NAME}</p>
+                  <p style="margin:4px 0 0 0;font-size:13px;color:#9A9690;">{SENDER_TITLE} &nbsp;&middot;&nbsp; {COMPANY_NAME}</p>
+                  <p style="margin:10px 0 0 0;font-size:13px;color:#171717;">{PHONE}</p>
+                  <p style="margin:4px 0 0 0;font-size:12px;color:#9A9690;">
+                    HIC License: {HIC_LICENSE}&nbsp;&nbsp;&bull;&nbsp;&nbsp;EPA Certified
+                  </p>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>"""
+
 # ==========================================
 # HELPER: FALLBACK TEMPLATES
 # ==========================================
@@ -30,14 +104,15 @@ def _generate_fallback_outreach(lead: dict) -> dict:
     else:
         opening = f"I noticed a recent {signal_type} permit filed near {address}."
 
-    email_subject = f"Renovation Consultation for {address}"
+    email_subject = f"Free Consultation — {address}"
     email_body = (
-        f"{opening} I am reaching out from {COMPANY_NAME}, a local contractor specializing in "
-        f"{lead.get('property_type', 'residential')} renovations.\n\n"
-        f"We offer a free, no-obligation consultation to review your project scope and feasibility. "
-        f"You can also estimate your project costs using our tool at {WEBSITE}/cost-calculator.html.\n\n"
-        f"Please let me know if you would like to schedule a walk-through.\n\n"
-        f"Regards,\n{COMPANY_NAME} Team\nPhone: {PHONE}\nHIC License: {HIC_LICENSE} | EPA Certified"
+        f"{opening}\n\n"
+        f"My name is MD MOSHIN, and I'm a Project Coordinator at {COMPANY_NAME}, a licensed general contracting firm "
+        f"specializing in {lead.get('property_type', 'residential')} renovations across New York City.\n\n"
+        f"We offer a free, no-obligation site consultation to walk through your project scope and provide an honest "
+        f"assessment. If you'd like a rough cost estimate before we connect, our online calculator is available at "
+        f"{WEBSITE}/cost-calculator.html.\n\n"
+        f"Feel free to reply here or give us a call at {PHONE} — no pressure, just a conversation."
     )
     
     text_message = f"Hi, it's {COMPANY_NAME}. Saw your project at {address}. Need a bid? Try our calculator: {WEBSITE}/cost-calculator.html. {PHONE} HIC:{HIC_LICENSE} EPA Cert"
@@ -61,17 +136,17 @@ def _generate_fallback_outreach(lead: dict) -> dict:
     }
 
 # ==========================================
-# FUNCTION 1: AI OUTREACH GENERATOR (OPENROUTER)
+# FUNCTION 1: AI OUTREACH GENERATOR (OPENAI)
 # ==========================================
 
 def generate_outreach(lead: dict) -> dict:
     """
-    Generates personalized, constraint-compliant outreach copy using OpenRouter API.
+    Generates personalized, constraint-compliant outreach copy using OpenAI API.
     Returns a dictionary containing email, text message, and door hanger copy.
     """
-    api_key = os.getenv("OPENROUTER_API_KEY")
+    api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
-        print("OPENROUTER_API_KEY missing. Falling back to template.")
+        print("OPENAI_API_KEY missing. Falling back to template.")
         return _generate_fallback_outreach(lead)
 
     address = lead.get('address', 'Unknown Address')
@@ -81,32 +156,36 @@ def generate_outreach(lead: dict) -> dict:
     source = lead.get('source', '')
 
     system_prompt = (
-        "You are a highly professional, knowledgeable, and direct general contractor representing "
-        f"{COMPANY_NAME}. Your task is to write outreach copy for a prospective client. You are NOT a pushy salesperson."
+        f"You are a senior business development representative for {COMPANY_NAME}, a licensed general contracting firm in New York City. "
+        "You write concise, professional outreach emails that read like they came from a real person — not a marketing blast. "
+        "Your tone is warm but businesslike: confident, specific, and never pushy. You never use filler phrases like 'I hope this message finds you well' or hollow compliments."
     )
 
     user_prompt = f"""
-    Generate outreach copy for a prospect based on this data:
+    Write outreach copy for the following prospect:
+
     - Address: {address}
     - Borough: {borough}
     - Property Type: {prop_type}
     - Signal: {signal} (Source: {source})
 
-    Strict Rules for Copy:
-    1. Tone must be professional, direct, and knowledgeable.
-    2. Reference the specific signal. If source is 'closing' or signal is 'purchase', say something like "Congratulations on your new home". If it's a permit, say something like "I noticed a renovation permit was recently filed near your building".
-    3. Offer a free consultation. DO NOT make a hard sales pitch.
-    4. You MUST include this exact link: {WEBSITE}/cost-calculator.html
-    5. NEVER use more than ONE exclamation mark across all generated copy.
-    6. NEVER say "we're the best" or make superlative claims.
-    7. ALL messages (email, text, door hanger) MUST include our HIC License ({HIC_LICENSE}) and state that we are "EPA Certified".
-    8. ALL messages MUST include our phone number: {PHONE}.
-    9. Email subject MUST be under 60 characters.
-    10. Email body MUST be under 150 words.
-    11. Text message MUST be strictly under 160 characters.
+    EMAIL STRUCTURE (follow this exactly):
+    1. Opening line: One sentence acknowledging the specific signal. If signal is 'purchase' or source contains 'closing', write "Congratulations on your recent acquisition at [address]." For permits, write "I came across a recent permit filing at [address] and wanted to reach out."
+    2. Introduction: One sentence identifying who we are and our relevant expertise (do NOT use "we are the best" or superlatives).
+    3. Value paragraph: 2–3 sentences. Mention that we offer a free, no-obligation site consultation. Reference the cost estimator tool at {WEBSITE}/cost-calculator.html naturally within the sentence.
+    4. Closing line: A single, low-pressure call to action — invite them to reply or call us at {PHONE} if they'd like to connect.
+    NOTE: Do NOT include a signature block. It will be appended automatically.
 
-    Output FORMAT: 
-    Return strictly valid JSON with the exact following keys. Do not include markdown formatting like ```json.
+    RULES:
+    - Tone: professional, direct, specific to the signal. No generic filler.
+    - NEVER use more than one exclamation mark across all copy combined.
+    - NEVER make superlative claims ("best", "top-rated", "industry-leading").
+    - Email subject: under 60 characters, specific to the address or signal.
+    - Email body: 120–180 words. Well-structured paragraphs, not a wall of text.
+    - Text message: strictly under 160 characters. Include {PHONE} and HIC:{HIC_LICENSE}.
+    - Door hanger: clear header, 3–4 short lines, include {PHONE}, HIC license, EPA Certified.
+
+    Return strictly valid JSON — no markdown, no code fences:
     {{
         "email_subject": "string",
         "email_body": "string",
@@ -117,15 +196,12 @@ def generate_outreach(lead: dict) -> dict:
 
     headers = {
         "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json",
-        "HTTP-Referer": f"https://{WEBSITE}", # OpenRouter ranking requirement
-        "X-Title": COMPANY_NAME              # OpenRouter ranking requirement
+        "Content-Type": "application/json"
     }
 
     payload = {
-        "model": "anthropic/claude-3-haiku", # Routing to Claude 3 Haiku via OpenRouter
-        "temperature": 0.4,
-        "max_tokens": 800,
+        "model": "o3",
+        "max_completion_tokens": 1000,
         "messages": [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt}
@@ -134,7 +210,7 @@ def generate_outreach(lead: dict) -> dict:
 
     try:
         response = requests.post(
-            "https://openrouter.ai/api/v1/chat/completions",
+            "https://api.openai.com/v1/chat/completions",
             headers=headers,
             json=payload,
             timeout=30
@@ -161,7 +237,7 @@ def generate_outreach(lead: dict) -> dict:
         }
         
     except Exception as e:
-        print(f"OpenRouter API Error: {e}. Falling back to template.")
+        print(f"OpenAI API Error: {e}. Falling back to template.")
         return _generate_fallback_outreach(lead)
 
 # ==========================================
@@ -178,10 +254,10 @@ def send_email(to_email: str, subject: str, body: str, lead_id: int = None) -> b
         return False
 
     message = Mail(
-        from_email=EMAIL,
+        from_email=(EMAIL, f"{SENDER_NAME} at {COMPANY_NAME}"),
         to_emails=to_email,
         subject=subject,
-        html_content=body.replace('\n', '<br>')
+        html_content=_build_email_html(body)
     )
     
     try:
