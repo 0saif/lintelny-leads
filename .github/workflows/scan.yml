@@ -1,0 +1,52 @@
+name: Command Center Automations
+
+on:
+  schedule:
+    # Runs at minute 0 past every 6th hour (UTC)
+    - cron: '0 */6 * * *'
+    # Runs every day at 11:00 UTC (07:00 AM EDT / 06:00 AM EST)
+    - cron: '0 11 * * *'
+  workflow_dispatch: # Allows you to manually click "Run workflow" in GitHub UI
+
+jobs:
+  run-automations:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run cron_runner.py
+        env:
+          # Pulling sensitive keys from GitHub Repository Secrets
+          NYC_OPEN_DATA_TOKEN: ${{ secrets.NYC_OPEN_DATA_TOKEN }}
+          SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          TWILIO_SID: ${{ secrets.TWILIO_SID }}
+          TWILIO_TOKEN: ${{ secrets.TWILIO_TOKEN }}
+          TWILIO_PHONE: ${{ secrets.TWILIO_PHONE }}
+        # Set timezone to NY so the Python datetime checks work as expected
+        run: |
+          export TZ="America/New_York"
+          python cron_runner.py
+
+      - name: Run 7 AM Daily Digest
+        # Ensure the digest fires if this specific action run was triggered at 11:00 UTC (7am EDT)
+        if: github.event.schedule == '0 11 * * *'
+        env:
+          SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
+        run: |
+          export TZ="America/New_York"
+          python -c "from tracker import send_daily_digest; send_daily_digest()"
